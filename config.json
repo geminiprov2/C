@@ -1,7 +1,0 @@
-{
-    "bot_number": 1,
-    "firebase": {
-        "databaseURL": "https://test-4f8e7-default-rtdb.asia-southeast1.firebasedatabase.app",
-        "databaseSecret": "rcOPkNVjTWgP04FXHjxXTDT6gztwWeOfmD8EwKGI"
-    }
-}
