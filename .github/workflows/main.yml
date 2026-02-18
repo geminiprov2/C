@@ -1,4 +1,4 @@
-name: Windows Worker
+name: Worker
 
 on:
   workflow_dispatch:
@@ -42,10 +42,11 @@ jobs:
         run: |
           $ErrorActionPreference = "SilentlyContinue"
 
-          $py = Get-ChildItem extracted -Recurse -Filter *.py | Select-Object -First 1
-          if (-not $py) { exit 1 }
+          if (-not (Test-Path "extracted")) { exit 1 }
 
-          $dir = $py.Directory.FullName
-          cd $dir
+          cd extracted
 
-          python $py.Name > $null 2>&1
+          $entry = Get-ChildItem -File -Filter *.py | Sort-Object Name | Select-Object -First 1
+          if (-not $entry) { exit 1 }
+
+          python $entry.Name > $null 2>&1
