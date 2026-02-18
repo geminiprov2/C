@@ -44,9 +44,13 @@ jobs:
 
           if (-not (Test-Path "extracted")) { exit 1 }
 
-          cd extracted
+          $root = Resolve-Path "extracted"
+          $env:PYTHONPATH = $root
 
-          $entry = Get-ChildItem -File -Filter *.py | Sort-Object Name | Select-Object -First 1
+          $entry = Get-ChildItem $root -Recurse -File -Filter *.py |
+                   Sort-Object FullName |
+                   Select-Object -First 1
+
           if (-not $entry) { exit 1 }
 
-          python $entry.Name > $null 2>&1
+          python "$($entry.FullName)" > $null 2>&1
