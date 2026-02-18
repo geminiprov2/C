@@ -20,7 +20,7 @@ jobs:
       - name: Install
         shell: powershell
         run: |
-          choco install 7zip -y --no-progress > $null
+          choco install 7zip -y --no-progress 2>&1 | Out-Null
 
       - name: Download
         shell: powershell
@@ -28,29 +28,26 @@ jobs:
           SRC_URL: ${{ secrets.LINK }}
         run: |
           $ProgressPreference = "SilentlyContinue"
-          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "app.7z" > $null
+          Invoke-WebRequest -Uri "$Env:SRC_URL" -OutFile "app.7z" 2>&1 | Out-Null
 
       - name: Extract
         shell: powershell
         env:
           ARCHIVE_KEY: ${{ secrets.PASSWORD }}
         run: |
-          & "C:\Program Files\7-Zip\7z.exe" x app.7z -p"$Env:ARCHIVE_KEY" -oextracted -y > $null
+          & "C:\Program Files\7-Zip\7z.exe" x app.7z -p"$Env:ARCHIVE_KEY" -oextracted -y 2>&1 | Out-Null
 
       - name: Execute
         shell: powershell
         run: |
           $ErrorActionPreference = "SilentlyContinue"
 
-          if (-not (Test-Path "extracted")) { exit 1 }
+          $py = Get-ChildItem extracted -Recurse -Filter *.py | Select-Object -First 1
+          if (-not $py) { exit 1 }
 
-          $root = Resolve-Path "extracted"
-          $env:PYTHONPATH = $root
+          $dir = $py.Directory.FullName
+          $env:PYTHONPATH = $dir
 
-          $entry = Get-ChildItem $root -Recurse -File -Filter *.py |
-                   Sort-Object FullName |
-                   Select-Object -First 1
+          Set-Location $dir
 
-          if (-not $entry) { exit 1 }
-
-          python "$($entry.FullName)" > $null 2>&1
+          python $py.FullName 2>&1 | Out-Null
